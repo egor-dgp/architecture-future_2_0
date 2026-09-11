@@ -1,0 +1,53 @@
+@startuml
+title Deployment Automation Diagram (Terraform vs Manual)
+
+skinparam rectangle {
+  RoundCorner 10
+}
+
+legend left
+  |= Style |= Meaning |
+  | [TF] | Управляется Terraform |
+  | [M]  | Настраивается вручную / конфигом внутри VM |
+endlegend
+
+' === Users / BI ===
+actor "BI Users\n[ M ]" as BI
+
+' === VPC and Subnets ===
+rectangle "VPC: future20-network\n[ TF ]" as VPC {
+
+  rectangle "Public Subnet\n10.0.1.0/24\n[ TF ]" as PUBLIC {
+    rectangle "NAT VM\n2 vCPU, 2 GB\nDisk 20 GB\n[ TF ]" as NAT
+  }
+
+  rectangle "Private Subnet\n10.0.2.0/24\n[ TF ]" as PRIVATE {
+    rectangle "Lakehouse VM\n4 vCPU, 16 GB\nDisk 200 GB\n[ TF ]" as LAKE_VM {
+      rectangle "Lakehouse Engine\n(Dremio/SQL)\n[ M ]" as LAKE_APP
+    }
+
+    rectangle "Orchestrator VM\n2 vCPU, 8 GB\nDisk 100 GB\n[ TF ]" as ORCH_VM {
+      rectangle "Airflow / Orchestrator\n[ M ]" as ORCH_APP
+    }
+  }
+}
+
+' === Storage and IAM ===
+database "Object Storage Bucket\nLakehouse data\n[ TF ]" as BUCKET
+rectangle "Service Account / IAM Role\n[ TF ]" as SA
+
+' === Routes / Network relations (логические) ===
+NAT -[dotted]-> PUBLIC : Internet access\n(NAT = true)
+PRIVATE -[dotted]-> NAT : Route 0.0.0.0/0\nvia NAT\n[ TF ]
+
+' === Access and data flows ===
+LAKE_VM --> BUCKET : Read/Write Lakehouse data
+ORCH_VM --> BUCKET : Read/Write via ETL
+
+SA -[dotted]-> LAKE_VM : Access to cloud APIs\n[ TF ]
+SA -[dotted]-> ORCH_VM : Access to cloud APIs\n[ TF ]
+SA -[dotted]-> BUCKET : Access to bucket\n[ TF ]
+
+BI --> LAKE_VM : BI queries to\nLakehouse Engine\n[ M ]
+
+@enduml

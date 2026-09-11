@@ -1,0 +1,79 @@
+@startuml
+title Future 2.0 – Data Flow Diagram Between Domains
+
+skinparam rectangle {
+  RoundCorner 10
+}
+
+' === External actors (опционально) ===
+actor "Менеджмент / Аналитики" as user
+
+' === Processes / Domains ===
+
+rectangle "P1: Medical Domain\nМедицинская система клиник" as P1
+rectangle "P2: Fintech Domain\nФинтех‑платформа" as P2
+rectangle "P3: Corporate Domain\nКорпоративные системы" as P3
+rectangle "P4: Partner Domain\nФарма и производитель\nоборудования" as P4
+rectangle "P5: AI / Analytics Domain\nИИ‑сервисы" as P5
+rectangle "P6: Integration Layer\nESB + Streaming / ETL" as P6
+rectangle "P7: Orchestration\n(Airflow / аналог)" as P7
+rectangle "P8: Self‑Service BI‑Portal" as P8
+
+' === Data stores ===
+
+database "D1: Med DB / DWH\n(PHI – медкарты, истории,\nисследования)" as D1
+database "D2: Fin DB\n(финансовые БД)" as D2
+database "D3: Corporate DB\n(HR / инвентарь / учёт)" as D3
+database "D4: Partner Feeds\n(сырые данные партнёров\nв Integration Layer)" as D4
+database "D5: Lakehouse – Raw Zone" as D5
+database "D6: Lakehouse – Curated Zone" as D6
+database "D7: Lakehouse – Mart Zone" as D7
+database "D8: Feature / Model Store\n(AI Domain)" as D8
+
+' === Основные потоки данных ===
+
+' Медицинский домен
+P1 --> D1 : операционные медданные\n(приёмы, диагнозы, исследования)
+D1 --> P6 : агрегированные /\nобезличенные медданные\n(batch/CDC)
+P6 --> D5 : загрузка сырых\nмед‑агрегатов (Raw)
+
+' Финтех‑домен – новый финсервис
+P2 --> D2 : операции финсервиса\n(транзакции, статусы, продукты)
+D2 --> P6 : CDC / batch выгрузки\nпо финтаблицам
+P6 --> D5 : сырые данные\nфинтех‑сервиса (Raw)
+
+' Корпоративный домен
+P3 --> D3 : HR, инвентарь,\nуправленческие данные
+D3 --> P6 : выгрузка корпоративных\nданных
+P6 --> D5 : сырые корпоративные\nданные (Raw)
+
+' Партнёрский домен
+P4 --> D4 : файлы / API партнёров\n(фарма, оборудование)
+D4 --> P6 : ingestion партнёрских\nпотоков
+P6 --> D5 : сырые данные\nпартнёров (Raw)
+
+' Оркестрация → Curated / Mart
+P7 --> D5 : чтение Raw
+D5 --> P7 : сырые данные для ETL/ELT
+P7 --> D6 : очищенные и\nнормализованные данные (Curated)
+P7 --> D7 : витрины под\nконкретные сценарии (Mart)
+
+' AI / Analytics Domain
+D6 --> D8 : фичи и наборы\nдля обучения моделей
+P5 --> D8 : обучение моделей,\nсохранение версий
+P5 --> D6 : результаты скоринга /\nпредсказаний (обратно в Curated)
+P5 --> D7 : агрегированные\nрезультаты для отчётности
+
+' BI‑портал
+P8 --> D7 : SQL‑запросы к\nвитринам (Mart)
+user --> P8 : запросы отчётов /\nаналитика
+
+' === Логические пометки сценариев (комментарии) ===
+
+' Сценарий 1: интеграция нового финтех‑сервиса
+' P2 → D2 → P6 → D5 → P7 → D6/D7 → P8
+
+' Сценарий 2: использование ИИ для анализа медданных
+' P1 → D1 → P6 → D5 → P7 → D6 → D8/P5 → D6/D7 → P8
+
+@enduml
