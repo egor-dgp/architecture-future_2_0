@@ -1,0 +1,80 @@
+@startuml
+title Future 2.0 – Target Architecture (1 year) – Containers
+
+skinparam rectangle {
+  RoundCorner 10
+}
+
+actor "Business Analyst / Manager" as business
+actor "Medical Staff" as medstaff
+actor "Financial Analyst / Risk Officer" as finanalyst
+
+rectangle "Pharma Companies\n(External)" as pharma
+rectangle "Medical Equipment Manufacturer\n(External)" as equip
+
+rectangle "Operational Domains" {
+  rectangle "Medical Domain System\n(SQL Server 2008 DWH,\nPowerBuilder UI,\nPHI only here)" as med_sys
+  rectangle "Fintech Platform\n(Go/Java microservices + DB)" as fintech
+  rectangle "AI Services Platform\n(Python ML/AI, Feature Store)" as ai
+  rectangle "Corporate / Back-Office Systems\n(HR, inventory, accounting)" as corp
+}
+
+rectangle "Integration Layer\n(ESB + Streaming:\nApache Camel, Kafka, ETL)" as int_layer
+
+rectangle "Data Lakehouse\n(Object Storage + Table Format + SQL Engine)\nZones: Raw / Curated / Mart" as lakehouse
+
+rectangle "Self-Service Data Portal / BI\n(Power BI + Web Portal)" as bi_portal
+
+rectangle "Data Catalog & Lineage\n(Data Catalog tool)" as catalog
+
+rectangle "Data Orchestration Platform\n(Airflow / аналог)" as orch
+
+rectangle "Access & Security Service\n(IAM / RBAC / Policies)" as iam
+
+database "Cloud Infrastructure\n(IaaS/PaaS + IaC)" as cloud
+
+' Пользователи
+business --> bi_portal : запросы отчётов / ad-hoc
+medstaff --> med_sys : работа с медданными
+finanalyst --> fintech : финсервисы
+finanalyst --> bi_portal : просмотр отчётов
+
+' Внешние партнёры
+pharma --> int_layer : данные о препаратах,\nконтрактах, поставках
+equip --> int_layer : телеметрия,\nданные об оборудовании
+
+' Домены -> интеграция
+med_sys --> int_layer : агрегированные /\nобезличенные медданные (batch/CDC)
+fintech --> int_layer : транзакции,\nкредиты, счета (batch/stream)
+corp --> int_layer : HR, инвентарь,\nфинансовая отчётность
+
+' Интеграция -> Lakehouse
+int_layer --> lakehouse : загрузка сырых данных\nв Raw Zone
+
+' Оркестрация
+orch --> lakehouse : трансформации\nRaw -> Curated -> Mart
+orch --> int_layer : запуск ingestion-пайплайнов
+
+' Lakehouse <-> AI
+ai --> lakehouse : чтение датасетов\nдля обучения/скоринга
+lakehouse --> ai : подготовленные фичи,\nвитрины
+
+' BI <-> Lakehouse
+bi_portal --> lakehouse : SQL-запросы\nк витринам (Mart)
+
+' Catalog & lineage
+lakehouse --> catalog : схемы, метаданные,\nlineage
+catalog --> business : поиск наборов,\nпонимание метрик
+
+' Access & Security
+bi_portal --> iam : аутентификация /\nавторизация
+iam --> lakehouse : политики доступа\nк витринам/доменам
+
+' Cloud hosting
+cloud -[dotted]-> lakehouse : хостит
+cloud -[dotted]-> int_layer : хостит
+cloud -[dotted]-> orch : хостит
+cloud -[dotted]-> ai : хостит
+cloud -[dotted]-> bi_portal : хостит
+
+@enduml
