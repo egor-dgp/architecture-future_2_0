@@ -19,7 +19,22 @@ rectangle "Operational Domains" {
   rectangle "Corporate / Back-Office Systems\n(HR, inventory, accounting)" as corp
 }
 
-rectangle "Integration Layer\n(ESB + Streaming:\nApache Camel, Kafka, ETL)" as int_layer
+rectangle "Integration Layer (ESB + Streaming)" as int_layer {
+  rectangle "Adapters & Connectors\n(CDC, REST, SOAP, FTP)" as adapters
+  rectangle "Transformations\n(Batch / Streaming)" as transformations
+  rectangle "Routing & Protocols\n(Message Router, Protocol Switch)" as routing
+  rectangle "Reliability Patterns\n(Retry, DLQ, Circuit Breaker)" as reliability
+  rectangle "Orchestration & Business Logic\n(Process Engine, ESB Flows)" as orchestration
+  rectangle "Streaming\n(Kafka)" as streaming
+}
+
+' Внутренние связи в Integration Layer
+adapters --> transformations : сырые данные
+transformations --> routing : нормализованные сообщения
+routing --> reliability : проверенные сообщения
+reliability --> orchestration : валидные события
+orchestration --> streaming : event-поток
+orchestration --> adapters : обратная связь / ответы
 
 rectangle "Data Lakehouse\n(Object Storage + Table Format + SQL Engine)\nZones: Raw / Curated / Mart" as lakehouse
 
